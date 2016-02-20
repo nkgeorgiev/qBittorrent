@@ -203,6 +203,11 @@
     <string>Download torrent</string>
    </property>
   </action>
+  <action name="actionMake_filter">
+   <property name="text">
+    <string>Make filter</string>
+   </property>
+  </action>
   <action name="actionOpen_news_URL">
    <property name="text">
     <string>Open news URL</string>

@@ -130,8 +130,10 @@ void RSSImp::displayItemsListMenu(const QPoint&)
         if (hasTorrent && hasLink)
             break;
     }
-    if (hasTorrent)
+    if (hasTorrent) {
         myItemListMenu.addAction(actionDownload_torrent);
+        myItemListMenu.addAction(actionMake_filter);
+    }
     if (hasLink)
         myItemListMenu.addAction(actionOpen_news_URL);
     if (hasTorrent || hasLink)
@@ -331,6 +333,46 @@ void RSSImp::refreshAllFeeds()
     foreach (QTreeWidgetItem* item, m_feedList->getAllFeedItems())
         item->setData(0, Qt::DecorationRole, QVariant(QIcon(":/icons/loading.png")));
     m_rssManager->refresh();
+}
+
+void RSSImp::makeFilter()
+{
+    QList<QListWidgetItem*> selected_items = listArticles->selectedItems();
+
+
+    if (selected_items.size() <= 0)
+        return;
+    foreach(QListWidgetItem* item, selected_items) {
+        if(!item) continue;
+        QString feed_url = item->data(Article::FeedUrlRole).toString();
+        std::string name = item->text().toStdString();
+        std::regex rgx("(\\[.*\\]) (.*) (- [\\d]+)v? (\\[[\\d]+p\\])"); //dont say anything pls
+        std::smatch match;
+        if(std::regex_search(name,match, rgx)) {
+            std::string sub = match[1].str();
+            boost::replace_all(sub, "[", "\\[");
+            boost::replace_all(sub, "]", "\\]");
+            std::string res = match[4].str();
+            boost::replace_all(res, "[", "\\[");
+            boost::replace_all(res, "]", "\\]");
+            QString filter = QString::fromStdString(sub + ".*" + match[2].str() + ".*" + res);
+
+            Rss::DownloadRulePtr rule(new Rss::DownloadRule);
+            rule->setName(QString::fromStdString(match[2].str()));
+            rule->setEnabled(true);
+            rule->setMustContain(filter);
+            rule->setUseRegex(true);
+            rule->setRssFeeds(QStringList(feed_url));
+            rule->setSavePath(QString::fromStdString("/home/nikolay/Downloads/Animes/" + match[2].str()));
+            std::cout<<rule->mustContain().toStdString()<<std::endl;
+            m_rssManager->downloadRules()->saveRule(rule);
+            m_rssManager->downloadRules()->saveRulesToStorage();
+
+        }
+
+
+
+    }
 }
 
 void RSSImp::downloadSelectedTorrents()
@@ -713,6 +755,7 @@ RSSImp::RSSImp(QWidget *parent):
     actionCopy_feed_URL->setIcon(GuiIconProvider::instance()->getIcon("edit-copy"));
     actionDelete->setIcon(GuiIconProvider::instance()->getIcon("edit-delete"));
     actionDownload_torrent->setIcon(GuiIconProvider::instance()->getIcon("download"));
+    actionMake_filter->setIcon(GuiIconProvider::instance()->getIcon("download"));
     actionManage_cookies->setIcon(GuiIconProvider::instance()->getIcon("preferences-web-browser-cookies"));
     actionMark_items_read->setIcon(GuiIconProvider::instance()->getIcon("mail-mark-read"));
     actionNew_folder->setIcon(GuiIconProvider::instance()->getIcon("folder-new"));
@@ -760,6 +803,7 @@ RSSImp::RSSImp(QWidget *parent):
     // News list actions
     connect(actionOpen_news_URL, SIGNAL(triggered()), this, SLOT(openSelectedArticlesUrls()));
     connect(actionDownload_torrent, SIGNAL(triggered()), this, SLOT(downloadSelectedTorrents()));
+    connect(actionMake_filter, SIGNAL(triggered()),this,SLOT(makeFilter()));
 
     connect(m_feedList, SIGNAL(currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)), this, SLOT(populateArticleList(QTreeWidgetItem*)));
     connect(m_feedList, SIGNAL(foldersAltered(QList<QTreeWidgetItem*>)), this, SLOT(updateItemsInfos(QList<QTreeWidgetItem*>)));

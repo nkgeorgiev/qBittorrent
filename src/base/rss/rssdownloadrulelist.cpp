@@ -35,6 +35,7 @@
 #include "base/preferences.h"
 #include "base/qinisettings.h"
 #include "rssdownloadrulelist.h"
+#include <iostream>
 
 using namespace Rss;
 
