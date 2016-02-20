@@ -37,7 +37,12 @@
 
 #include "base/rss/rssfolder.h"
 #include "base/rss/rssmanager.h"
+#include "base/rss/rssdownloadrule.h"
+#include "base/rss/rssdownloadrulelist.h"
 #include "ui_rss.h"
+#include <regex>
+#include <boost/algorithm/string/replace.hpp>
+
 
 class FeedListWidget;
 
@@ -78,6 +83,7 @@ private slots:
     void updateItemInfos(QTreeWidgetItem *item);
     void openSelectedArticlesUrls();
     void downloadSelectedTorrents();
+    void makeFilter();
     void fillFeedsList(QTreeWidgetItem *parent = 0, const Rss::FolderPtr& rss_parent = Rss::FolderPtr());
     void saveSlidersPosition();
     void restoreSlidersPosition();
@@ -98,7 +104,6 @@ private:
     QListWidgetItem* m_currentArticle;
     QShortcut *editHotkey;
     QShortcut *deleteHotkey;
-
 };
 
 #endif

@@ -17,3 +17,6 @@ tarball.commands += xz -f $${PROJECT_NAME}-$${PROJECT_VERSION}.tar &&
 tarball.commands += rm -fR $${PROJECT_NAME}-$${PROJECT_VERSION}
 
 QMAKE_EXTRA_TARGETS += tarball
+
+RESOURCES += \
+    src/gui/icons.qrc
