@@ -73,7 +73,7 @@
     <i>QBT_TR(Supported parameters (case sensitive):)QBT_TR
     <ul>
     <li>QBT_TR(%N: Torrent name)QBT_TR</li>
-    <li>QBT_TR(%L: Label)QBT_TR</li>
+    <li>QBT_TR(%L: Category)QBT_TR</li>
     <li>QBT_TR(%F: Content path (same as root path for multifile torrent))QBT_TR</li>
     <li>QBT_TR(%R: Root path (first torrent subdirectory path))QBT_TR</li>
     <li>QBT_TR(%D: Save path)QBT_TR</li>
@@ -81,7 +81,9 @@
     <li>QBT_TR(%Z: Torrent size (bytes))QBT_TR</li>
     <li>QBT_TR(%T: Current tracker)QBT_TR</li>
     <li>QBT_TR(%I: Info hash)QBT_TR</li>
-    </ul></i>
+    </ul>
+    QBT_TR(Tip: Encapsulate parameter with quotation marks to avoid text being cut off at whitespace (e.g., "%N"))QBT_TR
+    </i>
 </fieldset>
 </div>
 
@@ -378,7 +380,7 @@
     <label for="ssl_cert_textarea" style="margin-left: 20px;">QBT_TR(Certificate:)QBT_TR</label>
     <textarea id="ssl_cert_textarea" rows="5" cols="70"></textarea>
     </div>
-    <div style="padding-left: 10px;"><a target="_blank" href="http://httpd.apache.org/docs/2.2/ssl/ssl_faq.html#aboutcerts">QBT_TR(Information about certificates)QBT_TR</a></div>
+    <div style="padding-left: 10px;"><a target="_blank" href="https://httpd.apache.org/docs/current/ssl/ssl_faq.html#aboutcerts">QBT_TR(Information about certificates)QBT_TR</a></div>
   </fieldset>
 </fieldset>
 
@@ -1263,19 +1265,19 @@ applyPreferences = function() {
   var json_str = JSON.encode(settings);
 
   new Request({url: 'command/setPreferences',
-			    method: 'post',
-			    data: {'json': json_str,
+                method: 'post',
+                data: {'json': json_str,
                                    },
                             onFailure: function() {
                               alert("QBT_TR(Unable to save program preferences, qBittorrent is probably unreachable.)QBT_TR");
                               window.parent.closeWindows();
                             },
-			    onSuccess: function() {
+                onSuccess: function() {
                                 // Close window
                                 window.parent.location.reload();
-				window.parent.closeWindows();
-			    }
-		}).send();
+                window.parent.closeWindows();
+                }
+        }).send();
 };
 
 loadPreferences();

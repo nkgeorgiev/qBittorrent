@@ -29,8 +29,10 @@ class MyOtherClass
 {
 public:
     //code
+    
 protected:
     //code
+    
 private:
     //code
 };
@@ -87,10 +89,14 @@ default:
 }
 ```
 
-#### d. single-line blocks (lambdas, initializer lists etc.) ####
+#### d. Brace enclosed initializers ####
+Unlike single-line functions, you must not insert spaces between the brackets and concluded expressions.<br/>
+But you must insert a space between the variable name and initializer.
 ```c++
- {} // empty - space before {
- { body } // spaces around { and before }
+Class obj {}; // empty
+Class obj {expr};
+Class obj {expr1, /*...,*/ exprN};
+QVariantMap map {{"key1", 5}, {"key2", 10}};
 ```
 
 ### 2. If blocks ###
@@ -173,11 +179,11 @@ All names should be camelCased.
 #### a. Type names and namespaces ####
 Type names and namespaces start with Upper case letter (except POD types).
 ```c++
-class ClassName {}
+class ClassName {};
 
-struct StructName {}
+struct StructName {};
 
-enum EnumName {}
+enum EnumName {};
 
 typedef QList<ClassName> SomeList;
 
@@ -211,11 +217,51 @@ a += "b"
   + "d";
 ```
 
+* **auto** keyword
+
+We allow the use of the **auto** keyword only where it is strictly necessary 
+(for example, to declare a lambda object, etc.), or where it **enhances** the readability of the code.
+Declarations for which one can gather enough information about the object interface (type) from its name 
+or the usage pattern (an iterator or a loop variable are good examples of clear patterns) 
+or the right part of the expression nicely fit here.<br/>
+<br/>
+When weighing whether to use an auto-typed variable please think about potential reviewers of your code, 
+who will read it as a plain diff (on github.com, for instance). Please make sure that such reviewers can 
+understand the code completely and without excessive effort.<br/>
+<br/>
+Some valid use cases:
+```c++
+template <typename List>
+void doSomethingWithList(const List &list)
+{
+    foreach (const auto &item, list) {
+        // we don't know item type here so we use 'auto' keyword
+        // do something with item
+    }
+}
+
+for (auto it = container.begin(), end = container.end(); it != end; ++it) {
+    // we don't need to know the exact iterator type,
+    // because all iterators have the same interface
+}
+
+auto spinBox = static_cast<QSpinBox*>(sender());
+// we know the variable type based on the right-hand expression
+```
+
 * Space around operations eg `a = b + c` or `a=b+c`:
 
-Before and after the assignment there should be a space. One exception could be: for loops.
+Before and after the assignment and other binary (and ternary) operators there should be a space.<br/>
+There should not be a space between increment/decrement and its operand.<br/>
+Some valid use cases:
 ```c++
-for (int a=0; a<b; ++b) {
+a += 20;
+a = (b <= MAX_B ? b : MAX_B);
+++a;
+b--;
+
+for (int a = 0; a < b; ++b) {
+    // code
 }
 ```
 
@@ -225,5 +271,5 @@ for (int a=0; a<b; ++b) {
 
 * Method definitions aren't allowed in header files
 
-###8. Not covered above###
+### 9. Not covered above###
 If something isn't covered above, just follow the same style the file you are editing has. If that particular detail isn't present in the file you are editing, then use whatever the rest of the project uses.

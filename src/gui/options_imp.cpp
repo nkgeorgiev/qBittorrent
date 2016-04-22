@@ -42,6 +42,7 @@
 
 #include <cstdlib>
 
+#include "app/application.h"
 #include "base/preferences.h"
 #include "base/utils/fs.h"
 #include "base/scanfoldersmodel.h"
@@ -51,6 +52,7 @@
 #include "advancedsettings.h"
 #include "guiiconprovider.h"
 #include "scanfoldersdelegate.h"
+#include "addnewtorrentdialog.h"
 #include "options_imp.h"
 
 #ifndef QT_NO_OPENSSL
@@ -81,7 +83,7 @@ options_imp::options_imp(QWidget *parent)
 #endif
     tabSelection->item(TAB_ADVANCED)->setIcon(GuiIconProvider::instance()->getIcon("preferences-other"));
     for (int i = 0; i < tabSelection->count(); ++i) {
-        tabSelection->item(i)->setSizeHint(QSize(96, 64));  // uniform size for all icons
+        tabSelection->item(i)->setSizeHint(QSize(std::numeric_limits<int>::max(), 64));  // uniform size for all icons
     }
 
     IpFilterRefreshBtn->setIcon(GuiIconProvider::instance()->getIcon("view-refresh"));
@@ -157,6 +159,7 @@ options_imp::options_imp(QWidget *parent)
 #endif
     connect(checkShowSplash, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
     connect(checkProgramExitConfirm, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
+    connect(checkProgramAutoExitConfirm, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
     connect(checkPreventFromSuspend, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
     connect(comboTrayIcon, SIGNAL(currentIndexChanged(int)), this, SLOT(enableApplyButton()));
 #if (defined(Q_OS_UNIX) && !defined(Q_OS_MAC)) && !defined(QT_DBUS_LIB)
@@ -166,10 +169,24 @@ options_imp::options_imp(QWidget *parent)
     connect(checkAssociateTorrents, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
     connect(checkAssociateMagnetLinks, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
 #endif
+    connect(checkFileLog, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
+    connect(textFileLogPath, SIGNAL(textChanged(QString)), this, SLOT(enableApplyButton()));
+    connect(checkFileLogBackup, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
+    connect(checkFileLogBackup, SIGNAL(toggled(bool)), spinFileLogSize, SLOT(setEnabled(bool)));
+    connect(checkFileLogDelete, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
+    connect(checkFileLogDelete, SIGNAL(toggled(bool)), spinFileLogAge, SLOT(setEnabled(bool)));
+    connect(checkFileLogDelete, SIGNAL(toggled(bool)), comboFileLogAgeType, SLOT(setEnabled(bool)));
+    connect(spinFileLogSize, SIGNAL(valueChanged(int)), this, SLOT(enableApplyButton()));
+    connect(spinFileLogAge, SIGNAL(valueChanged(int)), this, SLOT(enableApplyButton()));
+    connect(comboFileLogAgeType, SIGNAL(currentIndexChanged(int)), this, SLOT(enableApplyButton()));
     // Downloads tab
     connect(textSavePath, SIGNAL(textChanged(QString)), this, SLOT(enableApplyButton()));
+    connect(radioBtnEnableSubcategories, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
+    connect(radioBtnAdvancedMode, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
+    connect(radioBtnRelocateOnCategoryChanged, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
+    connect(radioBtnRelocateOnCategorySavePathChanged, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
+    connect(radioBtnRelocateOnDefaultSavePathChanged, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
     connect(textTempPath, SIGNAL(textChanged(QString)), this, SLOT(enableApplyButton()));
-    connect(checkAppendLabel, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
     connect(checkAppendqB, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
     connect(checkPreallocateAll, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
     connect(checkAdditionDialog, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
@@ -194,17 +211,19 @@ options_imp::options_imp(QWidget *parent)
     connect(autoRunBox, SIGNAL(toggled(bool)), this, SLOT(enableApplyButton()));
     connect(autoRun_txt, SIGNAL(textChanged(QString)), this, SLOT(enableApplyButton()));
 
-    autoRun_param->setText(QString::fromUtf8("%1\n    %2\n    %3\n    %4\n    %5\n    %6\n    %7\n    %8\n    %9\n    %10")
-                           .arg(tr("Supported parameters (case sensitive):"))
-                           .arg(tr("%N: Torrent name"))
-                           .arg(tr("%L: Label"))
-                           .arg(tr("%F: Content path (same as root path for multifile torrent)"))
-                           .arg(tr("%R: Root path (first torrent subdirectory path)"))
-                           .arg(tr("%D: Save path"))
-                           .arg(tr("%C: Number of files"))
-                           .arg(tr("%Z: Torrent size (bytes)"))
-                           .arg(tr("%T: Current tracker"))
-                           .arg(tr("%I: Info hash")));
+    const QString autoRunStr = QString::fromUtf8("%1\n    %2\n    %3\n    %4\n    %5\n    %6\n    %7\n    %8\n    %9\n    %10\n%11")
+                               .arg(tr("Supported parameters (case sensitive):"))
+                               .arg(tr("%N: Torrent name"))
+                               .arg(tr("%L: Category"))
+                               .arg(tr("%F: Content path (same as root path for multifile torrent)"))
+                               .arg(tr("%R: Root path (first torrent subdirectory path)"))
+                               .arg(tr("%D: Save path"))
+                               .arg(tr("%C: Number of files"))
+                               .arg(tr("%Z: Torrent size (bytes)"))
+                               .arg(tr("%T: Current tracker"))
+                               .arg(tr("%I: Info hash"))
+                               .arg(tr("Tip: Encapsulate parameter with quotation marks to avoid text being cut off at whitespace (e.g., \"%N\")"));
+    autoRun_param->setText(autoRunStr);
 
     // Connection tab
     connect(spinPort, SIGNAL(valueChanged(QString)), this, SLOT(enableApplyButton()));
@@ -298,14 +317,21 @@ options_imp::options_imp(QWidget *parent)
 void options_imp::initializeLanguageCombo()
 {
     // List language files
-    const QDir lang_dir(":/lang");
-    const QStringList lang_files = lang_dir.entryList(QStringList() << "qbittorrent_*.qm", QDir::Files);
-    foreach (QString lang_file, lang_files) {
-        QString localeStr = lang_file.mid(12); // remove "qbittorrent_"
+    const QDir langDir(":/lang");
+    const QStringList langFiles = langDir.entryList(QStringList("qbittorrent_*.qm"), QDir::Files);
+    foreach (const QString langFile, langFiles) {
+        QString localeStr = langFile.mid(12); // remove "qbittorrent_"
         localeStr.chop(3); // Remove ".qm"
-        QLocale locale(localeStr);
-        QString language_name = languageToLocalizedString(locale);
-        comboI18n->addItem(/*QIcon(":/icons/flags/"+country+".png"), */ language_name, localeStr);
+        QString languageName;
+        if (localeStr.startsWith("eo", Qt::CaseInsensitive)) {
+            // QLocale doesn't work with that locale. Esperanto isn't a "real" language.
+            languageName = QString::fromUtf8(C_LOCALE_ESPERANTO);
+        }
+        else {
+            QLocale locale(localeStr);
+            languageName = languageToLocalizedString(locale);
+        }
+        comboI18n->addItem(/*QIcon(":/icons/flags/"+country+".png"), */ languageName, localeStr);
         qDebug() << "Supported locale:" << localeStr;
     }
 }
@@ -408,6 +434,7 @@ void options_imp::saveOptions()
     pref->setStartMinimized(startMinimized());
     pref->setSplashScreenDisabled(isSlashScreenDisabled());
     pref->setConfirmOnExit(checkProgramExitConfirm->isChecked());
+    pref->setDontConfirmAutoExit(!checkProgramAutoExitConfirm->isChecked());
     pref->setPreventFromSuspend(preventFromSuspend());
 #ifdef Q_OS_WIN
     pref->setWinStartup(WinStartup());
@@ -427,18 +454,32 @@ void options_imp::saveOptions()
         checkAssociateMagnetLinks->setEnabled(!checkAssociateMagnetLinks->isChecked());
     }
 #endif
+    Application * const app = static_cast<Application*>(QCoreApplication::instance());
+    app->setFileLoggerPath(Utils::Fs::fromNativePath(textFileLogPath->text()));
+    app->setFileLoggerBackup(checkFileLogBackup->isChecked());
+    app->setFileLoggerMaxSize(spinFileLogSize->value());
+    app->setFileLoggerAge(spinFileLogAge->value());
+    app->setFileLoggerAgeType(comboFileLogAgeType->currentIndex());
+    app->setFileLoggerDeleteOld(checkFileLogDelete->isChecked());
+    app->setFileLoggerEnabled(checkFileLog->isChecked());
     // End General preferences
 
+    auto session = BitTorrent::Session::instance();
+
     // Downloads preferences
-    pref->setSavePath(getSavePath());
-    pref->setTempPathEnabled(isTempPathEnabled());
-    pref->setTempPath(getTempPath());
-    pref->setAppendTorrentLabel(checkAppendLabel->isChecked());
+    session->setDefaultSavePath(Utils::Fs::expandPathAbs(textSavePath->text()));
+    session->setSubcategoriesEnabled(radioBtnEnableSubcategories->isChecked());
+    session->setASMDisabledByDefault(radioBtnSimpleMode->isChecked());
+    session->setDisableASMWhenCategoryChanged(radioBtnDisableASMOnCategoryChanged->isChecked());
+    session->setDisableASMWhenCategorySavePathChanged(radioBtnDisableASMOnCategorySavePathChanged->isChecked());
+    session->setDisableASMWhenDefaultSavePathChanged(radioBtnDisableASMOnDefaultSavePathChanged->isChecked());
+    session->setTempPathEnabled(checkTempFolder->isChecked());
+    session->setTempPath(Utils::Fs::expandPathAbs(textTempPath->text()));
     pref->useIncompleteFilesExtension(checkAppendqB->isChecked());
     pref->preAllocateAllFiles(preAllocateAllFiles());
-    pref->useAdditionDialog(useAdditionDialog());
-    pref->additionDialogFront(checkAdditionDialogFront->isChecked());
-    pref->addTorrentsInPause(addTorrentsInPause());
+    AddNewTorrentDialog::setEnabled(useAdditionDialog());
+    AddNewTorrentDialog::setTopLevel(checkAdditionDialogFront->isChecked());
+    session->setAddTorrentPaused(addTorrentsInPause());
     ScanFoldersModel::instance()->removeFromFSWatcher(removedScanDirs);
     ScanFoldersModel::instance()->addToFSWatcher(addedScanDirs);
     ScanFoldersModel::instance()->makePersistent();
@@ -500,7 +541,7 @@ void options_imp::saveOptions()
     pref->setAddTrackersEnabled(checkEnableAddTrackers->isChecked());
     pref->setTrackersList(textTrackers->toPlainText());
     pref->setGlobalMaxRatio(getMaxRatio());
-    pref->setMaxRatioAction(static_cast<MaxRatioAction>(comboRatioLimitAct->currentIndex()));
+    session->setMaxRatioAction(static_cast<MaxRatioAction>(comboRatioLimitAct->currentIndex()));
     // End Bittorrent preferences
     // Misc preferences
     // * IPFilter
@@ -575,6 +616,8 @@ void options_imp::loadOptions()
     int intValue;
     qreal floatValue;
     QString strValue;
+    bool fileLogBackup = true;
+    bool fileLogDelete = true;
     const Preferences* const pref = Preferences::instance();
 
     // General preferences
@@ -587,6 +630,7 @@ void options_imp::loadOptions()
     checkShowSplash->setChecked(!pref->isSplashScreenDisabled());
     checkStartMinimized->setChecked(pref->startMinimized());
     checkProgramExitConfirm->setChecked(pref->confirmOnExit());
+    checkProgramAutoExitConfirm->setChecked(!pref->dontConfirmAutoExit());
 
     checkShowSystray->setChecked(pref->systrayIntegration());
     if (checkShowSystray->isChecked()) {
@@ -608,20 +652,37 @@ void options_imp::loadOptions()
     checkAssociateMagnetLinks->setChecked(Preferences::isMagnetLinkAssocSet());
     checkAssociateMagnetLinks->setEnabled(!checkAssociateMagnetLinks->isChecked());
 #endif
+
+    const Application * const app = static_cast<Application*>(QCoreApplication::instance());
+    checkFileLog->setChecked(app->isFileLoggerEnabled());
+    textFileLogPath->setText(Utils::Fs::toNativePath(app->fileLoggerPath()));
+    fileLogBackup = app->isFileLoggerBackup();
+    checkFileLogBackup->setChecked(fileLogBackup);
+    spinFileLogSize->setEnabled(fileLogBackup);
+    fileLogDelete = app->isFileLoggerDeleteOld();
+    checkFileLogDelete->setChecked(fileLogDelete);
+    spinFileLogAge->setEnabled(fileLogDelete);
+    comboFileLogAgeType->setEnabled(fileLogDelete);
+    spinFileLogSize->setValue(app->fileLoggerMaxSize());
+    spinFileLogAge->setValue(app->fileLoggerAge());
+    comboFileLogAgeType->setCurrentIndex(app->fileLoggerAgeType());
     // End General preferences
 
-    // Downloads preferences
-    checkAdditionDialog->setChecked(pref->useAdditionDialog());
-    checkAdditionDialogFront->setChecked(pref->additionDialogFront());
-    checkStartPaused->setChecked(pref->addTorrentsInPause());
+    auto session = BitTorrent::Session::instance();
 
-    textSavePath->setText(Utils::Fs::toNativePath(pref->getSavePath()));
-    if (pref->isTempPathEnabled())
-        checkTempFolder->setChecked(true);
-    else
-        checkTempFolder->setChecked(false);
-    textTempPath->setText(Utils::Fs::toNativePath(pref->getTempPath()));
-    checkAppendLabel->setChecked(pref->appendTorrentLabel());
+    // Downloads preferences
+    checkAdditionDialog->setChecked(AddNewTorrentDialog::isEnabled());
+    checkAdditionDialogFront->setChecked(AddNewTorrentDialog::isTopLevel());
+    checkStartPaused->setChecked(session->isAddTorrentPaused());
+
+    textSavePath->setText(Utils::Fs::toNativePath(session->defaultSavePath()));
+    (session->isSubcategoriesEnabled() ? radioBtnEnableSubcategories : radioBtnDisableSubcategories)->setChecked(true);
+    (session->isASMDisabledByDefault() ? radioBtnSimpleMode : radioBtnAdvancedMode)->setChecked(true);
+    (session->isDisableASMWhenCategoryChanged() ? radioBtnDisableASMOnCategoryChanged : radioBtnRelocateOnCategoryChanged)->setChecked(true);
+    (session->isDisableASMWhenCategorySavePathChanged() ? radioBtnDisableASMOnCategorySavePathChanged : radioBtnRelocateOnCategorySavePathChanged)->setChecked(true);
+    (session->isDisableASMWhenDefaultSavePathChanged() ? radioBtnDisableASMOnDefaultSavePathChanged : radioBtnRelocateOnDefaultSavePathChanged)->setChecked(true);
+    checkTempFolder->setChecked(session->isTempPathEnabled());
+    textTempPath->setText(Utils::Fs::toNativePath(session->tempPath()));
     checkAppendqB->setChecked(pref->useIncompleteFilesExtension());
     checkPreallocateAll->setChecked(pref->preAllocateAllFiles());
 
@@ -844,7 +905,7 @@ void options_imp::loadOptions()
         spinMaxRatio->setEnabled(false);
         comboRatioLimitAct->setEnabled(false);
     }
-    comboRatioLimitAct->setCurrentIndex(static_cast<int>(pref->getMaxRatioAction()));
+    comboRatioLimitAct->setCurrentIndex(session->maxRatioAction());
     // End Bittorrent preferences
 
     // Web UI preferences
@@ -972,26 +1033,6 @@ qreal options_imp::getMaxRatio() const
     if (checkMaxRatio->isChecked())
         return spinMaxRatio->value();
     return -1;
-}
-
-// Return Save Path
-QString options_imp::getSavePath() const
-{
-    if (textSavePath->text().trimmed().isEmpty()) {
-        QString save_path = Preferences::instance()->getSavePath();
-        textSavePath->setText(Utils::Fs::toNativePath(save_path));
-    }
-    return Utils::Fs::expandPathAbs(textSavePath->text());
-}
-
-QString options_imp::getTempPath() const
-{
-    return Utils::Fs::expandPathAbs(textTempPath->text());
-}
-
-bool options_imp::isTempPathEnabled() const
-{
-    return checkTempFolder->isChecked();
 }
 
 // Return max connections number
@@ -1186,8 +1227,14 @@ QString options_imp::getLocale() const
 
 void options_imp::setLocale(const QString &localeStr)
 {
-    QLocale locale(localeStr);
-    QString name = locale.name();
+    QString name;
+    if (localeStr.startsWith("eo", Qt::CaseInsensitive)) {
+        name = "eo";
+    }
+    else {
+        QLocale locale(localeStr);
+        name = locale.name();
+    }
     // Attempt to find exact match
     int index = comboI18n->findData(name, Qt::UserRole);
     if (index < 0) {
@@ -1295,6 +1342,19 @@ QString options_imp::askForExportDir(const QString& currentExportPath)
     else
         dir = QFileDialog::getExistingDirectory(this, tr("Choose export directory"), QDir::homePath());
     return dir;
+}
+
+void options_imp::on_browseFileLogDir_clicked()
+{
+    const QString path = Utils::Fs::expandPathAbs(Utils::Fs::fromNativePath(textFileLogPath->text()));
+    QDir pathDir(path);
+    QString dir;
+    if (!path.isEmpty() && pathDir.exists())
+        dir = QFileDialog::getExistingDirectory(this, tr("Choose a save directory"), pathDir.absolutePath());
+    else
+        dir = QFileDialog::getExistingDirectory(this, tr("Choose a save directory"), QDir::homePath());
+    if (!dir.isNull())
+        textFileLogPath->setText(Utils::Fs::toNativePath(dir));
 }
 
 void options_imp::on_browseExportDirButton_clicked()
@@ -1448,7 +1508,6 @@ QString options_imp::languageToLocalizedString(const QLocale &locale)
             return QString::fromUtf8(C_LOCALE_ENGLISH_UNITEDKINGDOM);
         return QString::fromUtf8(C_LOCALE_ENGLISH);
     }
-    case QLocale::Esperanto: return QString::fromUtf8(C_LOCALE_ESPERANTO);
     case QLocale::French: return QString::fromUtf8(C_LOCALE_FRENCH);
     case QLocale::German: return QString::fromUtf8(C_LOCALE_GERMAN);
     case QLocale::Hungarian: return QString::fromUtf8(C_LOCALE_HUNGARIAN);

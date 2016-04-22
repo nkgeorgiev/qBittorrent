@@ -56,6 +56,8 @@ typedef QtSingleCoreApplication BaseApplication;
 class WebUI;
 #endif
 
+class FileLogger;
+
 namespace BitTorrent
 {
     class TorrentHandle;
@@ -73,6 +75,22 @@ public:
 #endif
     int exec(const QStringList &params);
     bool sendParams(const QStringList &params);
+
+    // FileLogger properties
+    bool isFileLoggerEnabled() const;
+    void setFileLoggerEnabled(bool value);
+    QString fileLoggerPath() const;
+    void setFileLoggerPath(const QString &path);
+    bool isFileLoggerBackup() const;
+    void setFileLoggerBackup(bool value);
+    bool isFileLoggerDeleteOld() const;
+    void setFileLoggerDeleteOld(bool value);
+    int fileLoggerMaxSize() const;
+    void setFileLoggerMaxSize(const int value);
+    int fileLoggerAge() const;
+    void setFileLoggerAge(const int value);
+    int fileLoggerAgeType() const;
+    void setFileLoggerAgeType(const int value);
 
 protected:
 #ifndef DISABLE_GUI
@@ -93,15 +111,18 @@ private slots:
 
 private:
     bool m_running;
+    ShutdownDialogAction m_shutdownAct;
 
 #ifndef DISABLE_GUI
     QPointer<MainWindow> m_window;
-    ShutdownAction m_shutdownAct;
 #endif
 
 #ifndef DISABLE_WEBUI
     QPointer<WebUI> m_webui;
 #endif
+
+    // FileLog
+    QPointer<FileLogger> m_fileLogger;
 
     QTranslator m_qtTranslator;
     QTranslator m_translator;

@@ -68,8 +68,8 @@ public:
     ~PeerListWidget();
 
     void loadPeers(BitTorrent::TorrentHandle *const torrent, bool forceHostnameResolution = false);
-    QStandardItem *addPeer(const QString &ip, const BitTorrent::PeerInfo &peer);
-    void updatePeer(const QString &ip, const BitTorrent::PeerInfo &peer);
+    QStandardItem *addPeer(const QString &ip, BitTorrent::TorrentHandle *const torrent, const BitTorrent::PeerInfo &peer);
+    void updatePeer(const QString &ip, BitTorrent::TorrentHandle *const torrent, const BitTorrent::PeerInfo &peer);
     void updatePeerHostNameResolutionState();
     void updatePeerCountryResolutionState();
     void clear();
@@ -77,6 +77,7 @@ public:
 private slots:
     void loadSettings();
     void saveSettings() const;
+    void displayToggleColumnsMenu(const QPoint&);
     void showPeerListMenu(const QPoint&);
     void banSelectedPeers();
     void copySelectedPeers();
@@ -92,7 +93,8 @@ private:
     QSet<QString> m_missingFlags;
     QPointer<Net::ReverseResolution> m_resolver;
     PropertiesWidget *m_properties;
-    bool m_displayFlags;
+    bool m_resolveCountries;
+    bool m_wasCountryColHidden;
     QShortcut *m_copyHotkey;
 };
 

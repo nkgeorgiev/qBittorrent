@@ -39,7 +39,7 @@ HEADERS += \
     $$PWD/messageboxraised.h \
     $$PWD/options_imp.h \
     $$PWD/advancedsettings.h \
-    $$PWD/shutdownconfirm.h \
+    $$PWD/shutdownconfirmdlg.h \
     $$PWD/torrentmodel.h \
     $$PWD/torrentcreatordlg.h \
     $$PWD/scanfoldersdelegate.h \
@@ -48,7 +48,9 @@ HEADERS += \
     $$PWD/search/pluginselectdlg.h \
     $$PWD/search/pluginsourcedlg.h \
     $$PWD/search/searchlistdelegate.h \
-    $$PWD/search/searchsortmodel.h
+    $$PWD/search/searchsortmodel.h \
+    $$PWD/cookiesmodel.h \
+    $$PWD/cookiesdialog.h
 
 SOURCES += \
     $$PWD/mainwindow.cpp \
@@ -78,7 +80,7 @@ SOURCES += \
     $$PWD/advancedsettings.cpp \
     $$PWD/trackerlogin.cpp \
     $$PWD/options_imp.cpp \
-    $$PWD/shutdownconfirm.cpp \
+    $$PWD/shutdownconfirmdlg.cpp \
     $$PWD/torrentmodel.cpp \
     $$PWD/torrentcreatordlg.cpp \
     $$PWD/scanfoldersdelegate.cpp \
@@ -87,7 +89,9 @@ SOURCES += \
     $$PWD/search/pluginselectdlg.cpp \
     $$PWD/search/pluginsourcedlg.cpp \
     $$PWD/search/searchlistdelegate.cpp \
-    $$PWD/search/searchsortmodel.cpp
+    $$PWD/search/searchsortmodel.cpp \
+    $$PWD/cookiesmodel.cpp \
+    $$PWD/cookiesdialog.cpp
 
 win32|macx {
     HEADERS += $$PWD/programupdater.h
@@ -103,6 +107,7 @@ FORMS += \
     $$PWD/bandwidth_limit.ui \
     $$PWD/updownratiodlg.ui \
     $$PWD/confirmdeletiondlg.ui \
+    $$PWD/shutdownconfirmdlg.ui \
     $$PWD/torrentimportdlg.ui \
     $$PWD/executionlog.ui \
     $$PWD/addnewtorrentdialog.ui \
@@ -112,6 +117,8 @@ FORMS += \
     $$PWD/torrentcreatordlg.ui \
     $$PWD/search/searchwidget.ui \
     $$PWD/search/pluginselectdlg.ui \
-    $$PWD/search/pluginsourcedlg.ui
+    $$PWD/search/pluginsourcedlg.ui \
+    $$PWD/search/searchtab.ui \
+    $$PWD/cookiesdialog.ui
 
 RESOURCES += $$PWD/about.qrc

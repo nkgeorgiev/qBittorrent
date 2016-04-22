@@ -83,6 +83,7 @@ private slots:
     void handleScanFolderViewSelectionChanged();
     void on_IpFilterRefreshBtn_clicked();
     void handleIPFilterParsed(bool error, int ruleCount);
+    void on_browseFileLogDir_clicked();
     void on_browseExportDirButton_clicked();
     void on_browseExportDirFinButton_clicked();
     void on_browseFilterButton_clicked();
@@ -114,9 +115,6 @@ private:
     bool WinStartup() const;
 #endif
     // Downloads
-    QString getSavePath() const;
-    bool isTempPathEnabled() const;
-    QString getTempPath() const;
     bool preAllocateAllFiles() const;
     bool useAdditionDialog() const;
     bool addTorrentsInPause() const;

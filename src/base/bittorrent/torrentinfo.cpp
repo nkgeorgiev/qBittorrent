@@ -44,8 +44,8 @@ namespace libt = libtorrent;
 using namespace BitTorrent;
 
 TorrentInfo::TorrentInfo(NativeConstPtr nativeInfo)
-    : m_nativeInfo(nativeInfo)
 {
+    m_nativeInfo = boost::const_pointer_cast<libt::torrent_info>(nativeInfo);
 }
 
 TorrentInfo::TorrentInfo(const TorrentInfo &other)
@@ -211,6 +211,20 @@ QByteArray TorrentInfo::metadata() const
     return QByteArray(m_nativeInfo->metadata().get(), m_nativeInfo->metadata_size());
 }
 
+QStringList TorrentInfo::filesForPiece(int pieceIndex) const
+{
+    if (pieceIndex < 0)
+        return QStringList();
+
+    std::vector<libtorrent::file_slice> files(
+        nativeInfo()->map_block(pieceIndex, 0, nativeInfo()->piece_size(pieceIndex)));
+    QStringList res;
+    for (const libtorrent::file_slice& s: files) {
+        res.append(filePath(s.file_index));
+    }
+    return res;
+}
+
 void TorrentInfo::renameFile(uint index, const QString &newPath)
 {
     if (!isValid()) return;
@@ -219,5 +233,5 @@ void TorrentInfo::renameFile(uint index, const QString &newPath)
 
 TorrentInfo::NativePtr TorrentInfo::nativeInfo() const
 {
-    return *reinterpret_cast<const NativePtr *>(&m_nativeInfo);
+    return m_nativeInfo;
 }

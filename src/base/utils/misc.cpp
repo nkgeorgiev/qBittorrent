@@ -37,6 +37,9 @@
 #include <QProcess>
 #include <QSettings>
 #include <QThread>
+#include <QSysInfo>
+#include <boost/version.hpp>
+#include <libtorrent/version.hpp>
 
 #ifdef DISABLE_GUI
 #include <QCoreApplication>
@@ -83,20 +86,21 @@ static struct { const char *source; const char *comment; } units[] = {
     QT_TRANSLATE_NOOP3("misc", "KiB", "kibibytes (1024 bytes)"),
     QT_TRANSLATE_NOOP3("misc", "MiB", "mebibytes (1024 kibibytes)"),
     QT_TRANSLATE_NOOP3("misc", "GiB", "gibibytes (1024 mibibytes)"),
-    QT_TRANSLATE_NOOP3("misc", "TiB", "tebibytes (1024 gibibytes)")
+    QT_TRANSLATE_NOOP3("misc", "TiB", "tebibytes (1024 gibibytes)"),
+    QT_TRANSLATE_NOOP3("misc", "PiB", "pebibytes (1024 tebibytes)"),
+    QT_TRANSLATE_NOOP3("misc", "EiB", "exbibytes (1024 pebibytes)")
 };
 
-#ifndef DISABLE_GUI
-void Utils::Misc::shutdownComputer(ShutdownAction action)
+void Utils::Misc::shutdownComputer(const ShutdownDialogAction &action)
 {
 #if (defined(Q_OS_UNIX) && !defined(Q_OS_MAC)) && defined(QT_DBUS_LIB)
     // Use dbus to power off / suspend the system
-    if (action != ShutdownAction::Shutdown) {
+    if (action != ShutdownDialogAction::Shutdown) {
         // Some recent systems use systemd's logind
         QDBusInterface login1Iface("org.freedesktop.login1", "/org/freedesktop/login1",
                                    "org.freedesktop.login1.Manager", QDBusConnection::systemBus());
         if (login1Iface.isValid()) {
-            if (action == ShutdownAction::Suspend)
+            if (action == ShutdownDialogAction::Suspend)
                 login1Iface.call("Suspend", false);
             else
                 login1Iface.call("Hibernate", false);
@@ -106,7 +110,7 @@ void Utils::Misc::shutdownComputer(ShutdownAction action)
         QDBusInterface upowerIface("org.freedesktop.UPower", "/org/freedesktop/UPower",
                                    "org.freedesktop.UPower", QDBusConnection::systemBus());
         if (upowerIface.isValid()) {
-            if (action == ShutdownAction::Suspend)
+            if (action == ShutdownDialogAction::Suspend)
                 upowerIface.call("Suspend");
             else
                 upowerIface.call("Hibernate");
@@ -116,7 +120,7 @@ void Utils::Misc::shutdownComputer(ShutdownAction action)
         QDBusInterface halIface("org.freedesktop.Hal", "/org/freedesktop/Hal/devices/computer",
                                 "org.freedesktop.Hal.Device.SystemPowerManagement",
                                 QDBusConnection::systemBus());
-        if (action == ShutdownAction::Suspend)
+        if (action == ShutdownDialogAction::Suspend)
             halIface.call("Suspend", 5);
         else
             halIface.call("Hibernate");
@@ -145,7 +149,7 @@ void Utils::Misc::shutdownComputer(ShutdownAction action)
 #endif
 #ifdef Q_OS_MAC
     AEEventID EventToSend;
-    if (action != ShutdownAction::Shutdown)
+    if (action != ShutdownDialogAction::Shutdown)
         EventToSend = kAESleep;
     else
         EventToSend = kAEShutDown;
@@ -198,9 +202,9 @@ void Utils::Misc::shutdownComputer(ShutdownAction action)
     if (GetLastError() != ERROR_SUCCESS)
         return;
 
-    if (action == ShutdownAction::Suspend)
+    if (action == ShutdownDialogAction::Suspend)
         SetSuspendState(false, false, false);
-    else if (action == ShutdownAction::Hibernate)
+    else if (action == ShutdownDialogAction::Hibernate)
         SetSuspendState(true, false, false);
     else
         InitiateSystemShutdownA(0, QCoreApplication::translate("misc", "qBittorrent will shutdown the computer now because all downloads are complete.").toLocal8Bit().data(), 10, true, false);
@@ -211,7 +215,6 @@ void Utils::Misc::shutdownComputer(ShutdownAction action)
                           (PTOKEN_PRIVILEGES) NULL, 0);
 #endif
 }
-#endif // DISABLE_GUI
 
 #ifndef DISABLE_GUI
 // Get screen center
@@ -315,28 +318,56 @@ QString Utils::Misc::pythonVersionComplete() {
     return version;
 }
 
-// return best userfriendly storage unit (B, KiB, MiB, GiB, TiB)
+QString Utils::Misc::unitString(Utils::Misc::SizeUnit unit)
+{
+    return QCoreApplication::translate("misc",
+         units[static_cast<int>(unit)].source, units[static_cast<int>(unit)].comment);
+}
+
+// return best userfriendly storage unit (B, KiB, MiB, GiB, TiB, ...)
 // use Binary prefix standards from IEC 60027-2
 // see http://en.wikipedia.org/wiki/Kilobyte
 // value must be given in bytes
 // to send numbers instead of strings with suffixes
-QString Utils::Misc::friendlyUnit(qreal val, bool is_speed)
+bool Utils::Misc::friendlyUnit(qint64 sizeInBytes, qreal &val, Utils::Misc::SizeUnit &unit)
 {
-    if (val < 0)
-        return QCoreApplication::translate("misc", "Unknown", "Unknown (size)");
+    if (sizeInBytes < 0) return false;
+
     int i = 0;
-    while(val >= 1024. && i < 4) {
-        val /= 1024.;
+    qreal rawVal = static_cast<qreal>(sizeInBytes);
+
+    while ((rawVal >= 1024.) && (i <= static_cast<int>(SizeUnit::ExbiByte))) {
+        rawVal /= 1024.;
         ++i;
     }
+    val = rawVal;
+    unit = static_cast<SizeUnit>(i);
+    return true;
+}
+
+QString Utils::Misc::friendlyUnit(qint64 bytesValue, bool isSpeed)
+{
+    SizeUnit unit;
+    qreal friendlyVal;
+    if (!friendlyUnit(bytesValue, friendlyVal, unit)) {
+        return QCoreApplication::translate("misc", "Unknown", "Unknown (size)");
+    }
     QString ret;
-    if (i == 0)
-        ret = QString::number((long)val) + " " + QCoreApplication::translate("misc", units[0].source, units[0].comment);
+    if (unit == SizeUnit::Byte)
+        ret = QString::number(bytesValue) + " " + unitString(unit);
     else
-        ret = Utils::String::fromDouble(val, 1) + " " + QCoreApplication::translate("misc", units[i].source, units[i].comment);
-    if (is_speed)
+        ret = Utils::String::fromDouble(friendlyVal, 1) + " " + unitString(unit);
+    if (isSpeed)
         ret += QCoreApplication::translate("misc", "/s", "per second");
     return ret;
+}
+
+qlonglong Utils::Misc::sizeInBytes(qreal size, Utils::Misc::SizeUnit unit)
+{
+    for (int i = 0; i < static_cast<int>(unit); ++i) {
+        size *= 1024;
+    }
+    return size;
 }
 
 bool Utils::Misc::isPreviewable(const QString& extension)
@@ -580,23 +611,22 @@ void Utils::Misc::openFolderSelect(const QString& absolutePath)
 #elif defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
     if (QFileInfo(path).exists()) {
         QProcess proc;
-        QString output;
         proc.start("xdg-mime", QStringList() << "query" << "default" << "inode/directory");
         proc.waitForFinished();
-        output = proc.readLine().simplified();
+        QString output = proc.readLine().simplified();
         if (output == "dolphin.desktop" || output == "org.kde.dolphin.desktop")
             proc.startDetached("dolphin", QStringList() << "--select" << Utils::Fs::toNativePath(path));
         else if (output == "nautilus.desktop" || output == "org.gnome.Nautilus.desktop"
                  || output == "nautilus-folder-handler.desktop")
             proc.startDetached("nautilus", QStringList() << "--no-desktop" << Utils::Fs::toNativePath(path));
-        else if (output == "caja-folder-handler.desktop")
-            proc.startDetached("caja", QStringList() << "--no-desktop" << Utils::Fs::toNativePath(path));
         else if (output == "nemo.desktop")
             proc.startDetached("nemo", QStringList() << "--no-desktop" << Utils::Fs::toNativePath(path));
         else if (output == "konqueror.desktop" || output == "kfmclient_dir.desktop")
             proc.startDetached("konqueror", QStringList() << "--select" << Utils::Fs::toNativePath(path));
-        else
+        else {
+            // "caja" manager can't pinpoint the file, see: https://github.com/qbittorrent/qBittorrent/issues/5003
             openPath(path.left(path.lastIndexOf("/")));
+        }
     }
     else {
         // If the item to select doesn't exist, try to open its parent
@@ -634,3 +664,35 @@ QSize Utils::Misc::smallIconSize()
     return QSize(s, s);
 }
 #endif
+
+QString Utils::Misc::osName()
+{
+    // static initialization for usage in signal handler
+    static const QString name =
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
+    QString("%1 %2 %3")
+    .arg(QSysInfo::prettyProductName())
+    .arg(QSysInfo::kernelVersion())
+    .arg(QSysInfo::currentCpuArchitecture());
+#else
+    "<Input OS name here>";
+#endif
+    return name;
+}
+
+QString Utils::Misc::boostVersionString()
+{
+    // static initialization for usage in signal handler
+    static const QString ver = QString("%1.%2.%3")
+                 .arg(BOOST_VERSION / 100000)
+                 .arg((BOOST_VERSION / 100) % 1000)
+                 .arg(BOOST_VERSION % 100);
+    return ver;
+}
+
+QString Utils::Misc::libtorrentVersionString()
+{
+    // static initialization for usage in signal handler
+    static const QString ver = LIBTORRENT_VERSION;
+    return ver;
+}

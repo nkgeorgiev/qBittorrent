@@ -85,13 +85,14 @@ namespace BitTorrent
         QList<TrackerEntry> trackers() const;
         QList<QUrl> urlSeeds() const;
         QByteArray metadata() const;
+        QStringList filesForPiece(int pieceIndex) const;
 
         void renameFile(uint index, const QString &newPath);
 
         NativePtr nativeInfo() const;
 
     private:
-        NativeConstPtr m_nativeInfo;
+        NativePtr m_nativeInfo;
     };
 }
 

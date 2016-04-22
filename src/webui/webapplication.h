@@ -87,7 +87,9 @@ private:
     void action_command_topPrio();
     void action_command_bottomPrio();
     void action_command_recheck();
-    void action_command_setLabel();
+    void action_command_setCategory();
+    void action_command_addCategory();
+    void action_command_removeCategories();
     void action_command_getSavePath();
     void action_version_api();
     void action_version_api_min();
