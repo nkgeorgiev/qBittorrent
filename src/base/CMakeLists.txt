@@ -1,5 +1,4 @@
 find_package(ZLIB REQUIRED)
-include_directories(SYSTEM ${ZLIB_INCLUDE_DIRS})
 
 set(QBT_BASE_HEADERS
 bittorrent/cachestatus.h
@@ -113,7 +112,7 @@ tristatebool.cpp
 )
 
 add_library(qbt_base STATIC ${QBT_BASE_HEADERS} ${QBT_BASE_SOURCES})
-target_link_libraries(qbt_base ${ZLIB_LIBRARIES} ${LibtorrentRasterbar_LIBRARIES})
+target_link_libraries(qbt_base ZLIB::ZLIB LibtorrentRasterbar::LibTorrent)
 target_link_qt_components(qbt_base Core Network Xml)
 if (QT4_FOUND)
     if (GUI)
@@ -124,6 +123,11 @@ else (QT4_FOUND)
         target_link_libraries(qbt_base Qt5::Gui Qt5::Widgets)
     endif (GUI)
 endif (QT4_FOUND)
+
+if (DBUS)
+    target_link_qt_components(qbt_base DBus)
+endif ()
+
 if (APPLE)
     find_library(IOKit_LIBRARY IOKit)
     find_library(Carbon_LIBRARY Carbon)

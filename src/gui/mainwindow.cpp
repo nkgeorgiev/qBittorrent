@@ -72,7 +72,6 @@
 #include "torrentcreatordlg.h"
 #include "downloadfromurldlg.h"
 #include "addnewtorrentdialog.h"
-#include "torrentimportdlg.h"
 #include "statsdialog.h"
 #include "cookiesdialog.h"
 #include "speedlimitdlg.h"
@@ -102,12 +101,17 @@ void qt_mac_set_dock_menu(QMenu *menu);
 
 namespace
 {
-#define SETTINGS_KEY(name) "MainWindow/" name
+#define SETTINGS_KEY(name) "GUI/" name
 
     // ExecutionLog properties keys
-#define EXECUTIONLOG_SETTINGS_KEY(name) SETTINGS_KEY("ExecutionLog/") name
+#define EXECUTIONLOG_SETTINGS_KEY(name) SETTINGS_KEY("Log/") name
     const QString KEY_EXECUTIONLOG_ENABLED = EXECUTIONLOG_SETTINGS_KEY("Enabled");
     const QString KEY_EXECUTIONLOG_TYPES = EXECUTIONLOG_SETTINGS_KEY("Types");
+
+    // Notifications properties keys
+#define NOTIFICATIONS_SETTINGS_KEY(name) SETTINGS_KEY("Notifications/") name
+    const QString KEY_NOTIFICATIONS_ENABLED = NOTIFICATIONS_SETTINGS_KEY("Enabled");
+    const QString KEY_NOTIFICATIONS_TORRENTADDED = NOTIFICATIONS_SETTINGS_KEY("TorrentAdded");
 
     //just a shortcut
     inline SettingsStorage *settings() { return  SettingsStorage::instance(); }
@@ -163,7 +167,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_ui->actionPauseAll->setIcon(GuiIconProvider::instance()->getIcon("media-playback-pause"));
     m_ui->actionStart->setIcon(GuiIconProvider::instance()->getIcon("media-playback-start"));
     m_ui->actionStartAll->setIcon(GuiIconProvider::instance()->getIcon("media-playback-start"));
-    m_ui->actionImportTorrent->setIcon(GuiIconProvider::instance()->getIcon("document-import"));
     m_ui->menuAutoShutdownOnDownloadsCompletion->setIcon(GuiIconProvider::instance()->getIcon("application-exit"));
     m_ui->actionManageCookies->setIcon(GuiIconProvider::instance()->getIcon("preferences-web-browser-cookies"));
 
@@ -183,6 +186,7 @@ MainWindow::MainWindow(QWidget *parent)
     // Creating Bittorrent session
     connect(BitTorrent::Session::instance(), SIGNAL(fullDiskError(BitTorrent::TorrentHandle *const, QString)), this, SLOT(fullDiskError(BitTorrent::TorrentHandle *const, QString)));
     connect(BitTorrent::Session::instance(), SIGNAL(addTorrentFailed(const QString &)), this, SLOT(addTorrentFailed(const QString &)));
+    connect(BitTorrent::Session::instance(), SIGNAL(torrentNew(BitTorrent::TorrentHandle *const)), this, SLOT(torrentNew(BitTorrent::TorrentHandle *const)));
     connect(BitTorrent::Session::instance(), SIGNAL(torrentFinished(BitTorrent::TorrentHandle *const)), this, SLOT(finishedTorrent(BitTorrent::TorrentHandle *const)));
     connect(BitTorrent::Session::instance(), SIGNAL(trackerAuthenticationRequired(BitTorrent::TorrentHandle *const)), this, SLOT(trackerAuthenticationRequired(BitTorrent::TorrentHandle *const)));
     connect(BitTorrent::Session::instance(), SIGNAL(downloadFromUrlFailed(QString, QString)), this, SLOT(handleDownloadFromUrlFailure(QString, QString)));
@@ -421,6 +425,26 @@ void MainWindow::setExecutionLogMsgTypes(const int value)
 {
     m_executionLog->showMsgTypes(static_cast<Log::MsgTypes>(value));
     settings()->storeValue(KEY_EXECUTIONLOG_TYPES, value);
+}
+
+bool MainWindow::isNotificationsEnabled() const
+{
+    return settings()->loadValue(KEY_NOTIFICATIONS_ENABLED, true).toBool();
+}
+
+void MainWindow::setNotificationsEnabled(bool value)
+{
+    settings()->storeValue(KEY_NOTIFICATIONS_ENABLED, value);
+}
+
+bool MainWindow::isTorrentAddedNotificationsEnabled() const
+{
+    return settings()->loadValue(KEY_NOTIFICATIONS_TORRENTADDED, false).toBool();
+}
+
+void MainWindow::setTorrentAddedNotificationsEnabled(bool value)
+{
+    settings()->storeValue(KEY_NOTIFICATIONS_TORRENTADDED, value);
 }
 
 void MainWindow::addToolbarContextMenu()
@@ -696,6 +720,13 @@ void MainWindow::balloonClicked()
 void MainWindow::addTorrentFailed(const QString &error) const
 {
     showNotificationBaloon(tr("Error"), tr("Failed to add torrent: %1").arg(error));
+}
+
+// called when a torrent was added
+void MainWindow::torrentNew(BitTorrent::TorrentHandle *const torrent) const
+{
+    if (isTorrentAddedNotificationsEnabled())
+        showNotificationBaloon(tr("Torrent added"), tr("'%1' was added.", "e.g: xxx.avi was added.").arg(torrent->name()));
 }
 
 // called when a torrent has finished
@@ -1281,7 +1312,7 @@ void MainWindow::updateGUI()
 
 void MainWindow::showNotificationBaloon(QString title, QString msg) const
 {
-    if (!Preferences::instance()->useProgramNotification()) return;
+    if (!isNotificationsEnabled()) return;
 #if (defined(Q_OS_UNIX) && !defined(Q_OS_MAC)) && defined(QT_DBUS_LIB)
     org::freedesktop::Notifications notifications("org.freedesktop.Notifications",
                                                   "/org/freedesktop/Notifications",
@@ -1510,11 +1541,6 @@ void MainWindow::on_actionSearchWidget_triggered()
         }
     }
     displaySearchTab(m_ui->actionSearchWidget->isChecked());
-}
-
-void MainWindow::on_actionImportTorrent_triggered()
-{
-    TorrentImportDlg::importTorrent();
 }
 
 /*****************************************************
