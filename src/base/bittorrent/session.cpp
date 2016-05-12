@@ -70,6 +70,7 @@
 #include "base/net/portforwarder.h"
 #include "base/preferences.h"
 #include "base/settingsstorage.h"
+#include "base/torrentfileguard.h"
 #include "base/torrentfilter.h"
 #include "base/unicodestrings.h"
 #include "base/utils/misc.h"
@@ -675,6 +676,8 @@ void Session::setSessionSettings()
         sessionSettings.force_proxy = false;
     sessionSettings.no_connect_privileged_ports = false;
     sessionSettings.seed_choking_algorithm = libt::session_settings::fastest_upload;
+
+    sessionSettings.apply_ip_filter_to_trackers = pref->isFilteringTrackerEnabled();
     qDebug() << "Set session settings";
     m_nativeSession->set_settings(sessionSettings);
 }
@@ -1227,6 +1230,8 @@ bool Session::addTorrent(QString source, const AddTorrentParams &params)
         m_downloadedTorrents[handler->url()] = params;
     }
     else {
+        TorrentFileGuard guard(source);
+        guard.markAsAddedToSession();
         return addTorrent_impl(params, MagnetUri(), TorrentInfo::loadFromFile(source));
     }
 
